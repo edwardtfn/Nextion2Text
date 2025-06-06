@@ -72,6 +72,7 @@ class Component:
         "codesunload":  "Page Exit Event",
         "codestimer":   "Timer Event",
         "codesplayend": "Play Complete Event",
+        "codesslide":   "Touch Move Event",
     }
     attributes = {
         "type": {
