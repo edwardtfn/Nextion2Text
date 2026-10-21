@@ -1608,6 +1608,13 @@ class HMI:
         0x4fc44fa0: {"short":  "NX1060P101_011", "long": "Nextion 10.0\" Intelligent 1024x600",},
     }
 
+    _orientations = {
+        0: 0,
+        1: 90,
+        2: 180,
+        3: 270,
+    }
+
     def __init__(self, HMIFilePath):
         objectList = list()
         with open(HMIFilePath, "rb") as HMIFile:
@@ -1625,6 +1632,12 @@ class HMI:
                 self.modelDesc = self._models[self.modelCRC]["long"]
                 # Strip the NX/TJC prefix, take the T/K/P/X letter at the 4th place and unify P/X to P.
                 self.modelSeries = self.modelName.replace("NX", "").replace("TJC", "")[4].replace("X", "P")
+                # Display orientation as set in Device > Display: stored as 0..3 at offset 12,
+                # meaning 0, 90, 180 or 270 degrees.
+                orientationRaw = struct.unpack_from("<B", obj._raw, obj.start + 12)[0]
+                if orientationRaw not in self._orientations:
+                    raise Exception("Unknown display orientation: " + hex(orientationRaw))
+                self.orientation = self._orientations[orientationRaw]
         for obj in self.header.content:
             if obj.isPage():
                 self.pages.append(Page(self.raw, obj.start, obj.size, self.modelSeries))
@@ -1806,6 +1819,23 @@ if __name__ == '__main__':
 
     if args.stats:
         statFile = open(hmiTextFolder / Path(hmiFile.stem + "_Stats" + hmiTextFileExt), "w")
+
+    # Project settings from "main.HMI". Written separately from the pages, as they are not part of the code stats.
+    # The file name contains a dot, so it cannot collide with a page name.
+    deviceInfo = {
+        "model": hmi.modelName,
+        "description": hmi.modelDesc,
+        "orientation": hmi.orientation,
+    }
+    with open(hmiTextFolder / Path("main.HMI" + hmiTextFileExt), "w") as f:
+        f.write("main.HMI\n")
+        f.write("    Model: " + hmi.modelName + " (" + hmi.modelDesc + ")\n")
+        f.write("    Orientation: " + str(hmi.orientation) + "\n")
+    if args.json:
+        with open(jsonFolder / Path("main.HMI" + ".json"), "w") as f:
+            json.dump({"main.HMI": deviceInfo}, f, indent=4)
+    print("Model:       " + hmi.modelName + " (" + hmi.modelDesc + ")")
+    print("Orientation: " + str(hmi.orientation))
 
     texts = dict()
     codeLines = dict()
